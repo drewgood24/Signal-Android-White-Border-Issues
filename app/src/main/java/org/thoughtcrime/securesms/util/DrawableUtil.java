@@ -16,6 +16,8 @@ public final class DrawableUtil {
     Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
     Canvas canvas = new Canvas(bitmap);
 
+    canvas.drawARGB(0, 0, 0, 0);
+
     drawable.setBounds(0, 0, canvas.getWidth(), canvas.getHeight());
     drawable.draw(canvas);
 

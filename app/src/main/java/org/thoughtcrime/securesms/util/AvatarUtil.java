@@ -2,6 +2,12 @@ package org.thoughtcrime.securesms.util;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.Rect;
+import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.view.View;
@@ -113,17 +119,51 @@ public final class AvatarUtil {
 
   @WorkerThread
   public static @NonNull IconCompat getIconCompat(@NonNull Context context, @NonNull Recipient recipient) {
-    if (Build.VERSION.SDK_INT > 29) {
-      return IconCompat.createWithContentUri(AvatarProvider.getContentUri(recipient.getId()));
-    } else {
-      return IconCompat.createWithBitmap(getBitmapForNotification(context, recipient, AdaptiveBitmapMetrics.getInnerWidth()));
+//    if (Build.VERSION.SDK_INT > 29) {
+//      return IconCompat.createWithContentUri(AvatarProvider.getContentUri(recipient.getId()));
+//    } else {
+//      return IconCompat.createWithBitmap(getBitmapForNotification(context, recipient, AdaptiveBitmapMetrics.getInnerWidth()));
+//    }
+    // If recipient should not show an avatar, return a fully transparent icon.
+    if (recipient.getFallbackAvatar() instanceof FallbackAvatar.Transparent) {
+      // Transparent 1x1 bitmap (IconCompat doesn’t allow 0x0)
+      Bitmap transparentBitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888);
+      transparentBitmap.eraseColor(Color.TRANSPARENT);
+      return IconCompat.createWithBitmap(transparentBitmap);
     }
+
+    return IconCompat.createWithBitmap(
+        getBitmapForNotification(context, recipient, AdaptiveBitmapMetrics.getInnerWidth()));
   }
 
   @WorkerThread
   public static Bitmap getBitmapForNotification(@NonNull Context context, @NonNull Recipient recipient) {
     return getBitmapForNotification(context, recipient, UNDEFINED_SIZE);
   }
+
+  @WorkerThread
+  public static Bitmap makeCircular(Bitmap input, int sizePx) {
+    Bitmap output = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888);
+    Canvas canvas = new Canvas(output);
+
+    final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    Rect  src  = new Rect(0, 0, input.getWidth(), input.getHeight());
+    RectF dest = new RectF(0, 0, sizePx, sizePx);
+
+    // Transparent background
+    canvas.drawARGB(0, 0, 0, 0);
+
+    // Clip to circle
+    Path path = new Path();
+    path.addOval(dest, Path.Direction.CCW);
+    canvas.clipPath(path);
+
+    canvas.drawBitmap(input, src, dest, paint);
+
+    return output;
+  }
+
+
 
   @WorkerThread
   public static @NonNull Bitmap getBitmapForNotification(@NonNull Context context, @NonNull Recipient recipient, int size) {
@@ -134,15 +174,21 @@ public final class AvatarUtil {
       RequestManager requestManager = Glide.with(context);
 
       if (recipient.getShouldBlurAvatar() && recipient.getHasAvatar()) {
-        return DrawableUtil.toBitmap(AvatarGradientColors.getGradientDrawable(recipient), size, size);
+//        return DrawableUtil.toBitmap(AvatarGradientColors.getGradientDrawable(recipient), size, size);
+        return makeCircular(DrawableUtil.toBitmap(AvatarGradientColors.getGradientDrawable(recipient), size, size), size);
       } else {
         requestCircle(requestManager.asBitmap(), context, recipient, size).into(avatarTarget);
 
+//        Bitmap bitmap = avatarTarget.await();
+//        return Objects.requireNonNullElseGet(bitmap, () -> DrawableUtil.toBitmap(getFallback(context, recipient, size), size, size));
         Bitmap bitmap = avatarTarget.await();
-        return Objects.requireNonNullElseGet(bitmap, () -> DrawableUtil.toBitmap(getFallback(context, recipient, size), size, size));
+        bitmap = makeCircular(bitmap, size);
+        return Objects.requireNonNullElseGet(bitmap, () -> makeCircular(DrawableUtil.toBitmap(getFallback(context, recipient, size), size, size), size));
       }
     } catch (InterruptedException e) {
-      return DrawableUtil.toBitmap(getFallback(context, recipient, size), size, size);
+//      return DrawableUtil.toBitmap(getFallback(context, recipient, size), size, size);
+      return makeCircular(DrawableUtil.toBitmap(getFallback(context, recipient, size), size, size), size);
+
     }
   }
 
@@ -181,11 +227,15 @@ public final class AvatarUtil {
   }
 
   private static Drawable getFallback(@NonNull Context context, @NonNull Recipient recipient, int targetSize) {
-    FallbackAvatar fallbackAvatar = FallbackAvatar.forTextOrDefault(recipient.getDisplayName(context), recipient.getAvatarColor());
-
+//    FallbackAvatar fallbackAvatar = FallbackAvatar.forTextOrDefault(recipient.getDisplayName(context), recipient.getAvatarColor());
+//
+//    Drawable avatar = new FallbackAvatarDrawable(context, fallbackAvatar).circleCrop();
+//    avatar.setBounds(0, 0, targetSize, targetSize);
+//
+//    return avatar;
+    FallbackAvatar fallbackAvatar = FallbackAvatar.Transparent.INSTANCE;
     Drawable avatar = new FallbackAvatarDrawable(context, fallbackAvatar).circleCrop();
     avatar.setBounds(0, 0, targetSize, targetSize);
-
     return avatar;
   }
 

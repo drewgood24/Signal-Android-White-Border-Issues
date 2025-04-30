@@ -82,10 +82,19 @@ class FallbackAvatarDrawable(
   }
 
   override fun draw(canvas: Canvas) {
+//    if (icon == null) return
+//
+//    super.draw(canvas)
+//    icon?.draw(canvas)
+
     if (icon == null) return
 
-    super.draw(canvas)
-    icon?.draw(canvas)
+    if (fallbackAvatar is FallbackAvatar.Transparent) {
+      icon?.draw(canvas)
+    } else {
+      super.draw(canvas)
+      icon?.draw(canvas)
+    }
   }
 
   override fun setAlpha(alpha: Int) {
